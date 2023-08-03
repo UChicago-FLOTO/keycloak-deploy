@@ -1,0 +1,66 @@
+version: "3.9"
+
+services:
+  keycloak:
+    container_name: floto_keycloak
+    image: ${KEYCLOAK_IMAGE_LATEST:-ghcr.io/uchicago-floto/keycloak:latest}
+    env_file: .env
+    environment:
+      KC_LOG_CONSOLE_COLOR: "true"
+      KC_DB_URL: jdbc:mysql://keycloak_db:3306/keycloak
+      KC_DB_USERNAME: keycloak
+      JGROUPS_DISCOVERY_PROTOCOL: JDBC_PING
+      JGROUPS_DISCOVERY_PROPERTIES: datasource_jndi_name=java:jboss/datasources/KeycloakDS,info_writer_sleep_time=500
+      KC_PROXY: edge
+      KEYCLOAK_ADMIN: admin
+      VIRTUAL_HOST: auth.floto.science
+      LETSENCRYPT_HOST: auth.floto.science
+      PROXY_ADDRESS_FORWARDING: "true"
+    depends_on:
+      - keycloak_db
+    command: [ "start", "--http-port=80", "--hostname", "auth.floto.science", "--spi-login-protocol-openid-connect-legacy-logout-redirect-uri=true", "--optimized" ]
+
+  keycloak_db:
+    image: mysql
+    volumes:
+      - keycloak_data:/var/lib/mysql
+    env_file: .env
+    environment:
+      MYSQL_DATABASE: keycloak
+      MYSQL_USER: keycloak
+
+  nginx-proxy:
+    image: nginxproxy/nginx-proxy
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - conf:/etc/nginx/conf.d
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - certs:/etc/nginx/certs:ro
+      - ./proxy.conf:/etc/nginx/proxy.conf
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+
+  acme-companion:
+    image: nginxproxy/acme-companion
+    container_name: nginx-proxy-acme
+    environment:
+      DEFAULT_EMAIL: infrastructure@floto.science
+      NGINX_PROXY_CONTAINER: nginx-proxy
+    volumes:
+      - certs:/etc/nginx/certs:rw
+      - acme:/etc/acme.sh
+      - conf:/etc/nginx/conf.d
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+volumes:
+  conf:
+  vhost:
+  html:
+  certs:
+  acme:
+  keycloak_data:
