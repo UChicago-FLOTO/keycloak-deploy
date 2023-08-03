@@ -3,7 +3,7 @@ version: "3.9"
 services:
   keycloak:
     container_name: floto_keycloak
-    image: ${KEYCLOAK_IMAGE_LATEST:-ghcr.io/uchicago-floto/keycloak:latest}
+    image: ${KEYCLOAK_IMAGE_LATEST:-ghcr.io/uchicago-floto/keycloak-deploy:latest}
     env_file: .env
     environment:
       KC_LOG_CONSOLE_COLOR: "true"
